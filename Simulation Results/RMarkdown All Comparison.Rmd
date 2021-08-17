@@ -1,0 +1,91 @@
+---
+title: "`r Dir.name` Simulation"
+author: "Ada Wang"
+date: "'r Sys.Date()'"
+output: html_document
+---
+
+```{r setup, include=FALSE}
+knitr::opts_chunk$set(echo = TRUE)
+```
+
+```{r, echo=F, warning=F, message=F,fig.width = 12, fig.height = 9, fig.align = "center"}
+#-------------------------------------------------------
+# Plot
+library(stringr)
+library(AugRCT)
+root.path <- "C:\\Users\\wangxi8\\Documents\\AugRCT\\"
+
+comps.all <- dt.all %>% dplyr::mutate(true.par = true.delta) %>% 
+  dplyr::mutate(cov.ind = 1*((true.par >= lower.CI) & (true.par <= upper.CI)), Power.ind = 1*(lower.CI > 0), Bias.ind = point.est - true.par, CI.width = upper.CI - lower.CI)
+
+summ <- comps.all%>% dplyr::group_by(set.num, label, data.source, unm.confs,lambdas) %>% 
+  dplyr::summarise(nsim = n(), Bias = round(mean(Bias.ind),3), Coverage = round(100*mean(cov.ind),2), 
+                   Emp.SD = round(sd(point.est),3), Emp.MSE = round(sqrt(sum(Bias.ind^2)/(nsim-1)),3),Emp.MSE2 = round(sum(Bias.ind^2)/(nsim-1),3),
+                   CI.width.mean = round(mean(CI.width),2), Power = round(mean(Power.ind),4)) 
+ref.MSE2 <- summ %>% dplyr::filter(label == "No borrowing") %>% dplyr::mutate(ref.Emp.MSE2 = Emp.MSE2) %>% dplyr::select(set.num, ref.Emp.MSE2)
+summ <- merge(summ, ref.MSE2[,c("set.num","ref.Emp.MSE2")], by="set.num") %>% dplyr::mutate(MSE.Ratio = Emp.MSE2/ref.Emp.MSE2)
+#Standard deviation is used to measure the spread of data around the mean, while RMSE is used to measure distance between the true value and the predicted values. RMSE is generally used to measure the error of prediction, i.e. how much the predictions you made differ from the predicted data. 
+
+# generate figure
+summ.long.0 <- summ %>% tidyr::gather(quantity, value, nsim, Bias, Coverage, Emp.SD, Emp.MSE, CI.width.mean, Power,MSE.Ratio) 
+summ.long.0$quantity[summ.long.0$lambdas==0 & summ.long.0$quantity=="Power"] <- "Type I error"
+summ.long.0 <- summ.long.0 %>%#dplyr::filter(label != "No borrowing") 
+  dplyr::mutate(label.new=factor(label, levels=method.level,
+                                 labels=method.label),
+                subgroup=factor(label, levels=method.level, labels=subgroup.label),
+                Drift=factor(data.source, levels=1:8, labels=c("1. 0","2. 0, CDD","3. 0.1, Time trend", "4. 0.1, CDD", "5. 0.1, Time trend + CDD", "6. -0.1, Time trend", "7. -0.1, CDD", "8. -0.1, Time trend + CDD")),
+                unm.confs.ind = factor(unm.confs, levels= 1:2, labels=c("1. No","2. Yes"))) %>% 
+  dplyr::filter(! label %in% c("Matching for order","PS stratification for order", "IPTW trim (org) for order"))
+```
+
+```{r, echo=F, message=F,warning=F,fig.width = 12, fig.height = 9, fig.align = "center"}
+summ.longs <- list(summ.long.0 %>% dplyr::filter(unm.confs == 1) , # remove results with unmeasured confounding
+                   summ.long.0 ) #add unmeasured confounding
+
+fig.path = paste0(root.path, "Simulation Results\\Figure\\", Dir.name, "\\") 
+dir.create(fig.path)
+nb.ref <- unique(summ.long.0[(summ.long.0$label=="No borrowing")&(summ.long.0$unm.confs == 1),c("value","quantity","lambdas")])
+
+for (i in 1:2){
+  summ.long <- summ.longs[[i]]
+  summ.long.all <- summ.long %>% dplyr::filter(lambdas==1.185 | quantity=="Type I error")
+  
+  fig.dt <- summ.long.all
+  p <- plot.simu(fig.dt = fig.dt, 
+                 fig.title = paste0("Figure ",1+(i-1)*6, ": With Treatment Effect"),
+                 quants = c("Bias","Power","Type I error"),
+                 ref.quants = c("Bias","Power","Power","Type I error","Type I error"), 
+                 ref.locs = c(0,0.8, nb.ref$value[nb.ref$quantity=="Power"],
+                              0.025, nb.ref$value[nb.ref$quantity=="Type I error" & nb.ref$lambdas ==0]), 
+                 ref.labels = c("0","0.8", as.character(round(nb.ref$value[nb.ref$quantity=="Power"], 2)),
+                                ".025", as.character(round(nb.ref$value[nb.ref$quantity=="Type I error" & nb.ref$lambdas ==0],2))), 
+                 cols = cols,
+                 facet.row = "quantity", 
+                 facet.col = "subgroup",
+                 fig.path = fig.path)
+  
+  p <- plot.simu(fig.dt = fig.dt, 
+                 fig.title = paste0("Figure ",2+(i-1)*6, ": With Treatment Effect"),
+                 quants = c("Coverage","CI.width.mean","MSE.Ratio"),
+                 ref.quants = c("Coverage","Coverage", "CI.width.mean","MSE.Ratio"), 
+                 ref.locs = c(100*(0.95-1.96*sqrt(0.05*(1-0.05)/n.sim)), 100*0.95, 
+                              nb.ref$value[nb.ref$quantity=="CI.width.mean" & nb.ref$lambdas !=0], 1), 
+                 ref.labels = c(round(100*(0.95-1.96*sqrt(0.05*(1-0.05)/n.sim)),1), round(100*0.95,1),
+                                round(nb.ref$value[nb.ref$quantity=="CI.width.mean" & nb.ref$lambdas !=0], 1), 1), 
+                 cols = cols,
+                 facet.row = "quantity", 
+                 facet.col = "subgroup",
+                 fig.path = fig.path)
+}
+
+```
+
+
+```{r, echo=FALSE}
+files <- list.files(path = fig.path,pattern = "*.png")
+num <- as.numeric(gsub("[^\\d]+", "", files, perl=TRUE))
+num[num>40] <- num[num>40]/10
+kableone(files[order(num)])
+knitr::include_graphics(paste0(fig.path, files[order(num)]))
+```

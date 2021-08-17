@@ -1,0 +1,27 @@
+Package: AugRCT
+Type: Package
+Title: Augment Current Control with Historical Data in Randomized Clinical Trials
+Version: 0.1.0
+Author: Xi "Ada" Wang <xzw149@psu.edu>
+Maintainer: Xi "Ada" Wang <xzw149@psu.edu>
+Description: This package includes methods in augmenting the current control arms with historical data in Randomized Clinical Trials. The methods can be divided into four subgroups, naive frequentist methods (no borrowing and pooling, i.e. full borrowing), PS matching only/plus Bayesian information borrowing, PS stratification only/plus Bayesian information borrowing, IPTW only/plus Bayesian information borrowing. We require binary outcome(e.g. overall response rate)  and the hypothesis test is superiority test favoring a higher value.
+    For real data application, there are two R functions. With available real data, function RealData.Hybrid.R implement all the hybrid approaches (PS plus Bayesian), and function RealData.Freq.R implement all the frequentist approaches (naive and PS only). From both functions, a data frame with point estimate and 95% CI of treatment effect in risk difference of all the methods will be returned.  
+Depends:
+   R (>= 3.6.0),
+   dplyr,
+   tidyr,
+   MatchIt, 
+   rstan,
+   optmatch,
+   tableone,
+   forestplot,
+   PropCIs,
+   ggplot2
+License: MIT + file LICENSE
+Encoding: UTF-8
+LazyData: true
+RoxygenNote: 7.1.0
+Suggests: 
+    knitr,
+    rmarkdown
+VignetteBuilder: knitr

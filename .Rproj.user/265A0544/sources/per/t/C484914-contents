@@ -1,0 +1,200 @@
+---
+title: "AugRCT-vignette"
+output: 
+    rmarkdown::html_vignette:
+        df_print: kable
+        toc: true
+author: "Xi (Ada) Wang"
+date: "`r Sys.Date()`"
+vignette: >
+  %\VignetteIndexEntry{AugRCT-vignette}
+  %\VignetteEngine{knitr::rmarkdown}
+  %\VignetteEncoding{UTF-8}
+---
+
+```{r, include = FALSE}
+knitr::opts_chunk$set(
+  collapse = TRUE,
+  comment = "#>"
+)
+```
+
+```{r setup, message=FALSE}
+library(AugRCT)
+
+# path of the package
+root.path <- "C:\\Users\\wangxi8\\Documents\\AugRCT\\" 
+code.path <- paste0(root.path,"R\\")
+```
+
+## Introduction
+The __AugRCT__ package includes methods in augmenting the current control arms with historical data in Randomized Clinical Trials. The methods can be divided into four subgroups, naive frequentist methods (no borrowing and pooling, i.e. full borrowing), PS matching only/plus Bayesian information borrowing, PS stratification only/plus Bayesian information borrowing, IPTW only/plus Bayesian information borrowing. We require binary outcome(e.g. overall response rate) and the hypothesis test is superiority test favoring a higher value.
+
+For __simulation__, there are two R functions. For each simulation setting, function `Simu.Hybrid` implement all the hybrid approaches (PS plus Bayesian), and function `Simu.Freq` implement all the frequentist approaches (naive and PS only). From both functions, a data frame with point estimate and 95% CI of treatment effect in risk difference of all the methods will be returned. 
+
+For __real data application__, there are two R functions. With available real data, function `RealData.Hybrid` implement all the hybrid approaches (PS plus Bayesian), and function `RealData.Freq` implement all the frequentist approaches (naive and PS only). From both functions, a data frame with point estimate and 95% CI of treatment effect in risk difference of all the methods will be returned.  
+
+## Simulation setting
+There are n.E=80 patients in current experiment (E) group, n.CD=40 patients in current control (CD) group and n.CH=300 patients in historical control (CH) group. We have four prosnostic variables that would affect the outcome, including x1 (age, continuous), $x1 \sim N(\mu=40, 5)$, x2 (ECOG, binary), $x2 \sim Bin(p=0.4)$, x3 (Lab variable, continuous), $x3 \sim N(0,1)$, and x4 (biomarker, binary) $x4 \sim Bin(0.4)$. In the simulated dataset, we have other variables, including Z (indicator of treatment), D (indicator of current trial), group (E for current experiment, CD for concurrent control, CH for historical control), and Y (binary endpoint)
+
+The binary endpoint $Y$ is generated from logistic regression $$logit(P(Y=1)) = \beta_0+ \beta_1\times X1 + \beta_2\times X2 + \beta_3 \times X3 + \beta_4 \times X4 + \lambda \times Z + \xi \times H$$
+where $\beta_0=3.6, \beta_1=-0.1, \beta_2=-0.5, \beta_3=1, \beta_4=-1$. 
+
+We control drift ($\theta_{CH}-\theta_{CD}$) by $\xi$. No drift if $\xi=0$. We control treatment effect by $\lambda$.
+
+Hypothesis test is $$H_0: \triangle=\theta_E - \theta_C \leq 0  \text{  versus  } H_1: \triangle=\theta_E - \theta_C > 0$$ We reject $H_0$ if the $2.5\%$ lower bound of CI $\triangle>0$. The CI refers to confidence interval in frequentist approaches, and credible intervals in hybrid approaches.
+
+### Step 1. Specify simulation setting
+
+We specify simulation settings to test three factors, including treatment effect (positive/No), Drift size(1. No. No CDD; 2. No. With CDD; 3. 0.1, Time trend; 4. 0.1, With CDD; 5. 0.1 Time trend + CDD; 6. -0.1, Time trend; 7. -0.1, With CDD; 8. -0.1 Time trend + CDD. ) where CDD: covariate distribution difference.
+
+```{r simulation setting, eval=FALSE}
+lambda <- find.lambda(n.sim=1000,power=0.8)
+lambda # the value of lambda is 1.185 s.t. RCT 1:1 with 80 pts in E and C achieve power 0.8
+
+xi.1 <- find.xi(thetaCH=0.317-0.1) #-0.6459937
+xi.1 # the value of xi s.t. drift is -0.1
+xi.2 <- find.xi(thetaCH=0.317+0.1) #0.5588587
+xi.2 # the value of xi s.t. drift is 0.1
+```
+
+### Step 2. Run simulation on R server
+We use the R codes under the folder "AugRCT\\ Simulation" to run the simulation. The following part shows the example bash code on Putty after login. Notice that, there might be divergence warnings in the Bayesian part of hybrid approaches. But the variable of interest `delta` ($\triangle$) has converged trace plot.
+```{r putty, eval=FALSE}
+alias cd_scratch='cd /SFS/scratch/wangxi8/' # set alias to your scratch folder
+cd_scratch
+mkdir Stan                                  # make a directory for Hybrid approaches
+ls                                          # check files under the folder
+cp ~/AugRCT/Simulation/runr.sh .            # copy the runr.sh file from simulation folder in home directory to scratch folder
+chmod 700 runr.sh                           # change the mode of runr.sh s.t. the file is executable
+cp ~/AugRCT/Simulation/Simu.Hybrid.Rserver.R .  # copy Simu.Hybrid.Rserver.R to the current dile
+
+cp ~/AugRCT/Simulation/Compile.STAN.R .     # copy Compile.STAN.R to the scratch folder
+R CMD BATCH Compile.STAN.R                  # We first need to compile the STAN Models
+
+qsub -t 1-5100 ~/runr.sh Simu.Hybrid.Rserver.R  # submit 5100 jobs. We need to specify a number larger than 5000, because we may fail to generate the sampler for some simulations.
+qstat                                       # check status of work
+pwd                                         # get current path
+
+cat filename                                # see content within a file. e.g. 1.Rout to check the error
+```
+
+After the simulation completed, we summarise the simulation results in .RData format using function `save.freq.res` for frequentist approaches, and `save.stan.res` for hybrid approaches on __R server__. Then, we use WinSCP to transfer the .RData from the RData to local file under folder "AugRCT\\ Simulation Results \\ R Data". 
+
+### Step 3. Generate Plot
+We run code `RMarkdown Macro.R` under the folder "AugRCT\\ Simulation". It can be regarded as a macro of 'RMarkdown All Comparison.Rmd` file. We can apply different input data to generate the plot for mathods comparison using 'RMarkdown All Comparison.Rmd` in `.HTML` format. 
+
+### Notation of summary statistics for simulation
+* Bias: $\frac{\sum_i{(\hat{\theta_i}-\theta_{true})}}{nsim}$
+* Power: $\frac{\sum_i{I(CI_{i,lower} > 0)}}{nsim}$
+* CI.width.mean: $\frac{\sum_i{(CI_{i,upper}-CI_{i,lower})}}{nsim}$
+* Covarage: $100* \frac{\sum_i{I(\hat{\theta_i} \in (CI_{i,lower}, CI_{i,upper}))}}{nsim}$
+* MSE.Ratio: Ratio of MSE with MSE of "no borrowing approach" as reference.
+  * EMP.MSE is calculated as $\frac{\sum_i{(\hat{\theta_i}-\theta_{true})^2}}{nsim-1}$
+
+## Real Data Application
+Different from simulation, we perform real data application at local.
+
+### Step 1: Prepare Complete Data (see `Real Data_Summary.Rmd` for details)
+* Make sure the same inclusion and exclusion criteria between CH and CD.
+* Manipulate the data to generate variabels including Z (indicator of treatment), D (indicator of current trial), CH.ind (indicator of CH), group (E for current experiment, CD for concurrent control, CH for historical control), and Y (binary endpoint). A sample  data looks like:
+
+
+```{r example data}
+load(file=paste0(root.path, "\\Real data application\\complete_realdata.RData"))
+ps.covs=c("Smoker","AGE", "WEIGHTBL", "BASETMR","Male", "PRAD_ind","White","PDL1TPS_50", "BSECOG")
+kableone(head(complete.dt[,c("Y","Z","D","group",ps.covs)]))
+```
+
+### Step 2: Run all the approaches (see `Real Data_RD.Rmd` for details)
+* Load stan models and run `RealData.Hybrid` and `RealData.Freq`
+
+```{r stan, eval=FALSE}
+#load Stan models
+options(mc.cores=parallel::detectCores()) #In HPC server, DO NOT run this line of code
+rstan_options(auto_write = TRUE) #tell stan not to compile code that has already been compiled
+path <- paste0(root.path,"stan\\")
+# Matching + Fixed power prior. Bayes model 1. logit(theta) =beta0 + lambda*Z
+model.1 <- stan_model(paste0(path, "model1.stan"))
+# Matching + Fixed power prior. Bayes model 2. theta ~ Beta(k*mu, k*(1-mu))
+model.2 <- stan_model(paste0(path, "model2_new.stan"))
+# Stratification + random Power Prior
+model.3 <- stan_model(paste0(path, "model3.stan"))
+# Stratification + fixed Power Prior
+model.3fix <- stan_model(paste0(path, "model3fix.stan"))
+# Matching + Commensurate prior
+model.4 <- stan_model(paste0(path, "model4_new.stan"))
+# PS stratification + Commensurate prior
+model.5 <- stan_model(paste0(path, "model5_new.stan"))
+# IPTW + Commensurate prior
+model.6 <- stan_model(paste0(path, "model6_new.stan"))
+
+
+# run all the approaches
+comp.tmp <- RealData.Hybrid(realdata=complete.dt, ps.covs=ps.covs,
+                                trt="D",nstrata = 5)$comp
+comp.freq.tmp <- RealData.Freq(realdata=complete.dt, ps.covs=ps.covs,
+                                     trt="D",nstrata = 5)$comp.freq
+comps1 <- comp.tmp %>% dplyr::mutate(point.est = mean, lower.CI = X2.5., upper.CI = X97.5.,label = fit) %>%
+  dplyr::select(point.est,lower.CI,upper.CI,label)
+comp.all <- rbind(comps1, comp.freq.tmp) %>% dplyr::mutate_if(is.numeric, round, 3) %>% 
+  arrange(label) %>% dplyr::mutate(CI.width = upper.CI - lower.CI) 
+rownames(comp.all)=c(1:nrow(comp.all))  
+comp.all <- comp.all %>% dplyr::mutate(relative.CI.width = CI.width/CI.width[comp.all$label=="No borrowing"])
+
+save(comps.all, file=paste0(root.path,"Real data application\\RealData_RD_08192020.RData"))
+```
+
+### Step 3: Present result -- Forest Plot
+
+```{r, echo=FALSE,message=FALSE}
+load(file=paste0(root.path,"Real data application\\RealData_RD_08192020.RData"))
+remove.levels <- c("Stratification + fixed Power Prior","matching + power prior (Bayes model 1)")
+levels <- levels(comps.all[[1]]$label)[-which(levels(comps.all[[1]]$label) %in% remove.levels)]
+labels <- c("Matching + Power Prior", "Matching + Commensurate Prior",
+            "Stratification + Power Prior", "Stratification + commensurate Prior",
+            "IPTW + Power Prior","IPTW + commensurate Prior",
+            "PS Matching","IPTW","Pooling",
+            "No Borrowing", "IPTW Trimming", "PS Stratification")
+order <- c("No Borrowing", "Pooling", 
+           "PS Matching","Matching + Power Prior", "Matching + Commensurate Prior",
+           "PS Stratification", "Stratification + Power Prior", "Stratification + commensurate Prior",
+           "IPTW", "IPTW Trimming", "IPTW + Power Prior","IPTW + commensurate Prior")
+for (i in 1: length(comps.all)){
+  comps.all[[i]] <- comps.all[[i]] %>% 
+  dplyr::filter(! label %in% remove.levels) %>%
+    dplyr::mutate(label.new=factor(label, levels = levels, labels = labels))
+  comps.all[[i]] <- comps.all[[i]] [match(order, labels),]
+  rownames(comps.all[[i]])<- 1:dim(comps.all[[i]])[1]
+  }
+```
+
+```{r forest plot,echo=FALSE,message=FALSE,fig.width = 7, fig.height = 4}
+clrs <- fpColors(box="royalblue",line="darkblue")
+forestplot(labeltext=c(as.character(comps.all[[1]]$label.new)), 
+           mean=c(comps.all[[1]]$point.est),
+           lower=c(comps.all[[1]]$lower.CI),
+           upper=c(comps.all[[1]]$upper.CI),
+           grid = structure(c(0, comps.all[[1]]$point.est[comps.all[[1]]$label=="No borrowing"]), 
+                            gp = gpar(lty = 2, col = "#CCCCFF")), 
+           xticks = seq(from=0,to=0.4,by=0.1),
+           hrzl_lines = list("3"=gpar(lty=1),"6"=gpar(lty=2),"9"=gpar(lty=2)),
+           txt_gp = fpTxtGp(ticks=gpar(cex=1),xlab=gpar(cex=1.0)), #change font size. label, summary, xlab, title, ticks and legend.
+           xlab="Risk Difference (95% CI)",
+           col=clrs,
+           new_page = FALSE)
+
+# relative CI width (with no borrowing as reference)
+forestplot(labeltext=c(as.character(comps.all[[1]]$label.new)), 
+           mean=c(comps.all[[1]]$relative.CI.width),
+           lower=c(comps.all[[1]]$relative.CI.width),
+           upper=c(comps.all[[1]]$relative.CI.width),
+           zero=1.00,
+           hrzl_lines = list("3"=gpar(lty=1),"6"=gpar(lty=2),"9"=gpar(lty=2)),
+           boxsize = .25, # We set the box size to better visualize the type
+           line.margin = .1, # We need to add this to avoid crowding
+           txt_gp = fpTxtGp(ticks=gpar(cex=1),xlab=gpar(cex=1.0)), #change font size. label, summary, xlab, title, ticks and legend.
+           xticks = seq(from=0.4,to=1,by=0.2),
+           xlab="Relative CI Width \n (ref: No borrowing)",
+           col=clrs)
+```    
