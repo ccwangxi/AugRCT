@@ -42,4 +42,4 @@ library(AugRCT)
 
 ## Example
 
-Please run `AugRCT-vignette.Rmd` under `AugRCT\vignettes` to check the example for simulation on R server at Merck and real data application. 
+Please run `AugRCT-vignette.Rmd` under `AugRCT\vignettes` to check the example for simulation on R server. 
