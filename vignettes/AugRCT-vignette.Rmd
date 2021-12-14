@@ -23,7 +23,7 @@ knitr::opts_chunk$set(
 library(AugRCT)
 
 # path of the package
-root.path <- "C:\\Users\\wangxi8\\Documents\\AugRCT\\" 
+root.path <- "C:\\Users\\...\\AugRCT\\" 
 code.path <- paste0(root.path,"R\\")
 ```
 
@@ -91,110 +91,3 @@ We run code `RMarkdown Macro.R` under the folder "AugRCT\\ Simulation". It can b
 * Covarage: $100* \frac{\sum_i{I(\hat{\theta_i} \in (CI_{i,lower}, CI_{i,upper}))}}{nsim}$
 * MSE.Ratio: Ratio of MSE with MSE of "no borrowing approach" as reference.
   * EMP.MSE is calculated as $\frac{\sum_i{(\hat{\theta_i}-\theta_{true})^2}}{nsim-1}$
-
-## Real Data Application
-Different from simulation, we perform real data application at local.
-
-### Step 1: Prepare Complete Data (see `Real Data_Summary.Rmd` for details)
-* Make sure the same inclusion and exclusion criteria between CH and CD.
-* Manipulate the data to generate variabels including Z (indicator of treatment), D (indicator of current trial), CH.ind (indicator of CH), group (E for current experiment, CD for concurrent control, CH for historical control), and Y (binary endpoint). A sample  data looks like:
-
-
-```{r example data}
-load(file=paste0(root.path, "\\Real data application\\complete_realdata.RData"))
-ps.covs=c("Smoker","AGE", "WEIGHTBL", "BASETMR","Male", "PRAD_ind","White","PDL1TPS_50", "BSECOG")
-kableone(head(complete.dt[,c("Y","Z","D","group",ps.covs)]))
-```
-
-### Step 2: Run all the approaches (see `Real Data_RD.Rmd` for details)
-* Load stan models and run `RealData.Hybrid` and `RealData.Freq`
-
-```{r stan, eval=FALSE}
-#load Stan models
-options(mc.cores=parallel::detectCores()) #In HPC server, DO NOT run this line of code
-rstan_options(auto_write = TRUE) #tell stan not to compile code that has already been compiled
-path <- paste0(root.path,"stan\\")
-# Matching + Fixed power prior. Bayes model 1. logit(theta) =beta0 + lambda*Z
-model.1 <- stan_model(paste0(path, "model1.stan"))
-# Matching + Fixed power prior. Bayes model 2. theta ~ Beta(k*mu, k*(1-mu))
-model.2 <- stan_model(paste0(path, "model2_new.stan"))
-# Stratification + random Power Prior
-model.3 <- stan_model(paste0(path, "model3.stan"))
-# Stratification + fixed Power Prior
-model.3fix <- stan_model(paste0(path, "model3fix.stan"))
-# Matching + Commensurate prior
-model.4 <- stan_model(paste0(path, "model4_new.stan"))
-# PS stratification + Commensurate prior
-model.5 <- stan_model(paste0(path, "model5_new.stan"))
-# IPTW + Commensurate prior
-model.6 <- stan_model(paste0(path, "model6_new.stan"))
-
-
-# run all the approaches
-comp.tmp <- RealData.Hybrid(realdata=complete.dt, ps.covs=ps.covs,
-                                trt="D",nstrata = 5)$comp
-comp.freq.tmp <- RealData.Freq(realdata=complete.dt, ps.covs=ps.covs,
-                                     trt="D",nstrata = 5)$comp.freq
-comps1 <- comp.tmp %>% dplyr::mutate(point.est = mean, lower.CI = X2.5., upper.CI = X97.5.,label = fit) %>%
-  dplyr::select(point.est,lower.CI,upper.CI,label)
-comp.all <- rbind(comps1, comp.freq.tmp) %>% dplyr::mutate_if(is.numeric, round, 3) %>% 
-  arrange(label) %>% dplyr::mutate(CI.width = upper.CI - lower.CI) 
-rownames(comp.all)=c(1:nrow(comp.all))  
-comp.all <- comp.all %>% dplyr::mutate(relative.CI.width = CI.width/CI.width[comp.all$label=="No borrowing"])
-
-save(comps.all, file=paste0(root.path,"Real data application\\RealData_RD_08192020.RData"))
-```
-
-### Step 3: Present result -- Forest Plot
-
-```{r, echo=FALSE,message=FALSE}
-load(file=paste0(root.path,"Real data application\\RealData_RD_08192020.RData"))
-remove.levels <- c("Stratification + fixed Power Prior","matching + power prior (Bayes model 1)")
-levels <- levels(comps.all[[1]]$label)[-which(levels(comps.all[[1]]$label) %in% remove.levels)]
-labels <- c("Matching + Power Prior", "Matching + Commensurate Prior",
-            "Stratification + Power Prior", "Stratification + commensurate Prior",
-            "IPTW + Power Prior","IPTW + commensurate Prior",
-            "PS Matching","IPTW","Pooling",
-            "No Borrowing", "IPTW Trimming", "PS Stratification")
-order <- c("No Borrowing", "Pooling", 
-           "PS Matching","Matching + Power Prior", "Matching + Commensurate Prior",
-           "PS Stratification", "Stratification + Power Prior", "Stratification + commensurate Prior",
-           "IPTW", "IPTW Trimming", "IPTW + Power Prior","IPTW + commensurate Prior")
-for (i in 1: length(comps.all)){
-  comps.all[[i]] <- comps.all[[i]] %>% 
-  dplyr::filter(! label %in% remove.levels) %>%
-    dplyr::mutate(label.new=factor(label, levels = levels, labels = labels))
-  comps.all[[i]] <- comps.all[[i]] [match(order, labels),]
-  rownames(comps.all[[i]])<- 1:dim(comps.all[[i]])[1]
-  }
-```
-
-```{r forest plot,echo=FALSE,message=FALSE,fig.width = 7, fig.height = 4}
-clrs <- fpColors(box="royalblue",line="darkblue")
-forestplot(labeltext=c(as.character(comps.all[[1]]$label.new)), 
-           mean=c(comps.all[[1]]$point.est),
-           lower=c(comps.all[[1]]$lower.CI),
-           upper=c(comps.all[[1]]$upper.CI),
-           grid = structure(c(0, comps.all[[1]]$point.est[comps.all[[1]]$label=="No borrowing"]), 
-                            gp = gpar(lty = 2, col = "#CCCCFF")), 
-           xticks = seq(from=0,to=0.4,by=0.1),
-           hrzl_lines = list("3"=gpar(lty=1),"6"=gpar(lty=2),"9"=gpar(lty=2)),
-           txt_gp = fpTxtGp(ticks=gpar(cex=1),xlab=gpar(cex=1.0)), #change font size. label, summary, xlab, title, ticks and legend.
-           xlab="Risk Difference (95% CI)",
-           col=clrs,
-           new_page = FALSE)
-
-# relative CI width (with no borrowing as reference)
-forestplot(labeltext=c(as.character(comps.all[[1]]$label.new)), 
-           mean=c(comps.all[[1]]$relative.CI.width),
-           lower=c(comps.all[[1]]$relative.CI.width),
-           upper=c(comps.all[[1]]$relative.CI.width),
-           zero=1.00,
-           hrzl_lines = list("3"=gpar(lty=1),"6"=gpar(lty=2),"9"=gpar(lty=2)),
-           boxsize = .25, # We set the box size to better visualize the type
-           line.margin = .1, # We need to add this to avoid crowding
-           txt_gp = fpTxtGp(ticks=gpar(cex=1),xlab=gpar(cex=1.0)), #change font size. label, summary, xlab, title, ticks and legend.
-           xticks = seq(from=0.4,to=1,by=0.2),
-           xlab="Relative CI Width \n (ref: No borrowing)",
-           col=clrs)
-```    
