@@ -25,7 +25,7 @@ find.lambda <- function(n.sim=1000, power=0.8, seed.init = 2020, search.lowbound
                               beta0=3.6,beta1=-0.1,beta2=-0.5,beta3=1,beta4=-1)
       #use data with n.E=80, n.C= n.CD+n.CH=80 (here, CH and CD are from the same distribution)
       fit <- glm(Y ~ Z, data = mydata, family = "binomial") #default link is logit link
-      suppressMessages({pow.n <- pow.n + 1*(extract.res(fit,"standard")$lower.CI > 0)})
+      suppressMessages({pow.n <- pow.n + 1*(data.frame(confint(fit))["Z","X2.5.."] > 0)})
     }
     pow.n/n.sim - power
   }
