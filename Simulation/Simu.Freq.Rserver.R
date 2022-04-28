@@ -50,14 +50,12 @@ for(i in 1:32){
     fit <- Simu.Freq(seed=task_id, lambda=lambda, set.num = i,
                                 xi=data.source.vec$xis, x1.mean.CH=data.source.vec$x1.mean.CHs, x2.p.CH=data.source.vec$x2.p.CHs,
                                 ps.covs=c("x2","x3","x4"),
-                                n.E = 80, n.CD = 40, n.CH = 300,
-                                m2.iter = 40000, m2.adapt_delta=0.99, m4.iter = 20000,m5.iter = 20000)
+                                n.E = 80, n.CD = 40, n.CH = 300)
   }else {
     fit <- Simu.Freq(seed=task_id, lambda=lambda, set.num = i,
                                 xi=data.source.vec$xis, x1.mean.CH=data.source.vec$x1.mean.CHs, x2.p.CH=data.source.vec$x2.p.CHs,
                                 ps.covs=c("x1","x2","x3","x4"),
-                                n.E = 80, n.CD = 40, n.CH = 300,
-                                m2.iter = 40000, m2.adapt_delta=0.99, m4.iter = 20000,m5.iter = 20000)
+                                n.E = 80, n.CD = 40, n.CH = 300)
   }
 
   # Save simulated data and simulation results
