@@ -11,7 +11,7 @@ library(AugRCT)
 root.path <- "/SFS/user/ctc/wangxi8/AugRCT_new/"
 #options(mc.cores=parallel::detectCores()) #In HPC server, DO NOT run this line of code
 rstan_options(auto_write = TRUE) #tell stan not to compile code that has already been compiled
-path <- paste0(root.path,"stan\\")
+path <- paste0(root.path,"stan/")
 # Matching + Fixed power prior. Bayes model 1. logit(theta) =beta0 + lambda*Z
 model.1 <- stan_model(paste0(path, "model1.stan"))
 # Matching + Fixed power prior. Bayes model 2. theta ~ Beta(k*mu, k*(1-mu))
