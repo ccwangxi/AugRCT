@@ -46,7 +46,7 @@ Hypothesis test is $$H_0: \triangle=\theta_E - \theta_C \leq 0  \text{  versus  
 
 ### Step 1. Specify simulation setting
 
-We specify simulation settings to test three factors, including treatment effect (positive/No), Drift size(1. No. No CDD; 2. No. With CDD; 3. 0.1, Time trend; 4. 0.1, With CDD; 5. 0.1 Time trend + CDD; 6. -0.1, Time trend; 7. -0.1, With CDD; 8. -0.1 Time trend + CDD. ) where CDD: covariate distribution difference.
+We specify simulation settings to test three factors, including treatment effect (positive/No), Drift size(1. No. No CDD; 2. No. With CDD; 3. 0.1, Time trend; 4. 0.1, With CDD; 5. 0.1 Time trend + CDD; 6. -0.1, Time trend; 7. -0.1, With CDD; 8. -0.1 Time trend + CDD. ) where CDD: covariate distribution difference. See `Save.Simulation.Settings.R`.
 
 ```{r simulation setting, eval=FALSE}
 lambda <- find.lambda(n.sim=1000,power=0.8)
@@ -61,7 +61,7 @@ xi.2 # the value of xi s.t. drift is 0.1
 ### Step 2. Run simulation on R server
 We use the R codes under the folder "AugRCT\\ Simulation" to run the simulation. The following part shows the example bash code on Putty after login. Notice that, there might be divergence warnings in the Bayesian part of hybrid approaches. But the variable of interest `delta` ($\triangle$) has converged trace plot.
 ```{r putty, eval=FALSE}
-alias cd_scratch='cd /SFS/scratch/wangxi8/' # set alias to your scratch folder
+alias cd_scratch='cd /SFS/scratch/user/' # set alias to your scratch folder
 cd_scratch
 mkdir Stan                                  # make a directory for Hybrid approaches
 ls                                          # check files under the folder
@@ -79,10 +79,10 @@ pwd                                         # get current path
 cat filename                                # see content within a file. e.g. 1.Rout to check the error
 ```
 
-After the simulation completed, we summarise the simulation results in .RData format using function `save.freq.res` for frequentist approaches, and `save.stan.res` for hybrid approaches on __R server__. Then, we use WinSCP to transfer the .RData from the RData to local file under folder "AugRCT\\ Simulation Results \\ R Data". 
+After the simulation completed, we summarise the simulation results in .RData format using function `save.freq.res` for frequentist approaches, and `save.stan.res` for hybrid approaches on __R server__. Then, we use WinSCP to transfer the .RData from the RData to local file under folder "AugRCT\\ Simulation Results \\ R Data". See example code in `summary.R`.
 
-### Step 3. Generate Plot
-We run code `RMarkdown Macro.R` under the folder "AugRCT\\ Simulation". It can be regarded as a macro of 'RMarkdown All Comparison.Rmd` file. We can apply different input data to generate the plot for mathods comparison using 'RMarkdown All Comparison.Rmd` in `.HTML` format. 
+### Step 3. Summarize Simulation Results
+Check example code in `Summarize.Simulation.R`.
 
 ### Notation of summary statistics for simulation
 * Bias: $\frac{\sum_i{(\hat{\theta_i}-\theta_{true})}}{nsim}$
