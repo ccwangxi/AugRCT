@@ -56,7 +56,7 @@ task_id <- as.integer(Sys.getenv("SGE_TASK_ID"))
 
 ##------------- Step 3: Run the simulation---------------------------
 comps <- list()
-comps.fit <- list()
+#comps.fit <- list()
 
 for(i in 1:32){
   data.source.vec <- data.source.mx[simu_sets$data.source[i],]
@@ -83,9 +83,9 @@ for(i in 1:32){
 
   # Save simulated data and simulation results
   comps[[i]] <- fit$comp
-  comps.fit[[i]] <- fit$comp.fits
+  # comps.fit[[i]] <- fit$comp.fits
 }
 
 comps.all <- rbindlist(comps)
 
-save(comps.all,comps.fit, file = paste0(task_id, ".Rdata"))
+save(comps.all, file = paste0(task_id, ".Rdata"))

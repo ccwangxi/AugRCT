@@ -29,7 +29,6 @@ simu_sets <- expand.grid(data.source = 1:nrow(data.source.mx),
                          unm.confs = 1:length(unm.conf.inds),
                          lambdas = lambdas)
 
-
 #task_id <- 1  #### NEED to specify task_id as a interger when run it on local
 task_id <- as.integer(Sys.getenv("SGE_TASK_ID"))
 
@@ -63,7 +62,6 @@ for(i in 1:32){
 
 }
 
-data <- fit$mydata
-comps.freq.one <- rbindlist(comps.freq)
+comps.freq.all <- rbindlist(comps.freq)
 
-save(data, comps.freq.one, file = paste0(task_id, ".Rdata"))
+save(comps.freq.all, file = paste0(task_id, ".Rdata"))

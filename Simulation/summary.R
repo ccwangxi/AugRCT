@@ -32,7 +32,7 @@ save.freq.res <- function(path.temp,
   save(comps.freq,file=paste0(res.path,filename))
 }
 
-save.freq.res(path.temp="/SFS/scratch/wangxi8/freq_RD", nsim=500, filename="freq_RD_500_0803.RData")
+save.freq.res(path.temp="/SFS/scratch/user/freq_RD", nsim=5000, filename="freq_5000.RData")
 
 #--------------------------------------------
 # save results from Simu.Hybrid.Rserver.R
@@ -57,4 +57,4 @@ save.stan.res <- function(path.temp,
   save(comps,file=paste0(res.path,filename))
 }
 
-save.stan.res(path.temp="/SFS/scratch/wangxi8/stan_RD", nsim=500, filename="stan_RD_500_0803.RData")
+save.stan.res(path.temp="/SFS/scratch/user/stan_RD", nsim=5000, filename="stan_5000.RData")
