@@ -25,7 +25,7 @@ save.freq.res <- function(path.temp,
   length(files)
   for(iter in 1:nsim){
     load(files[iter]) #comps.freq.one
-    comps.freq[[iter]] <- comps.freq.one
+    comps.freq[[iter]] <- comps.freq.all
   }
   comps.freq <- rbindlist(comps.freq)
 
